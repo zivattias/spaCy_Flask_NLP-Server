@@ -1,5 +1,6 @@
 import spacy
 import json
+import time
 from flask import Flask, request, Response
 from uuid import uuid4
 from threading import Lock
@@ -37,6 +38,7 @@ def sents():
         cache.add(uuid)
 
     def split_into_sentences(data, uuid):
+        time.sleep(10)
         try:
             doc = nlp(data)
             sentences = [str(sentence) for sentence in doc.sents]
@@ -63,15 +65,11 @@ def sents():
             with cache_lock:
                 cache.update(uuid, "error", response)
 
-    with ThreadPoolExecutor() as executor:
-        executor.submit(split_into_sentences, data, uuid)
+    executor = ThreadPoolExecutor()
+    executor.submit(split_into_sentences, data, uuid)
 
     return Response(
-        json.dumps(
-            cache.get(uuid),
-        ),
-        status=200,
-        content_type="application/json",
+        json.dumps({uuid: cache.get(uuid)}), status=200, content_type="application/json"
     )
 
 
@@ -148,11 +146,11 @@ def pos():
             with cache_lock:
                 cache.update(uuid, "error", response)
 
-    with ThreadPoolExecutor() as executor:
-        executor.submit(detect_part_of_speech, tags, data, uuid)
+    executor = ThreadPoolExecutor()
+    executor.submit(detect_part_of_speech, tags, data, uuid)
 
     return Response(
-        json.dumps(cache.get(uuid)), status=200, content_type="application/json"
+        json.dumps({uuid: cache.get(uuid)}), status=200, content_type="application/json"
     )
 
 
@@ -194,11 +192,11 @@ def ents():
             with cache_lock:
                 cache.update(uuid, "error", response)
 
-    with ThreadPoolExecutor() as executor:
-        executor.submit(detect_named_entities, data, uuid)
+    executor = ThreadPoolExecutor()
+    executor.submit(detect_named_entities, data, uuid)
 
     return Response(
-        json.dumps(cache.get(uuid)), status=200, content_type="application/json"
+        json.dumps({uuid: cache.get(uuid)}), status=200, content_type="application/json"
     )
 
 
@@ -209,7 +207,7 @@ def get_cache():
     )
 
 
-@app.get("/tasks/<path:task_id>/status")
+@app.get("/tasks/<task_id>/status")
 def get_task_status(task_id: str):
     if task_id not in cache._cache:
         return Response(
@@ -222,7 +220,7 @@ def get_task_status(task_id: str):
     )
 
 
-@app.get("/tasks/<path:task_id>/result")
+@app.get("/tasks/<task_id>/result")
 def get_task_result(task_id: str):
     if task_id not in cache._cache:
         return Response(
